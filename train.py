@@ -78,12 +78,8 @@ def main():
     # Step 3: Create model
     print(f"Creating {args.model_type} model...")
     
-    if args.model_type in ['cnn', 'improved_cnn', 'residual_cnn']:
-        # Prepare data for CNN (add channel dimension)
-        X_train, X_val, X_test = data_loader.prepare_for_cnn(X_train, X_val, X_test)
-        input_shape = X_train.shape[1:]
-    else:
-        input_shape = X_train.shape[1:]
+    # All models now use the same input shape (time_steps, features)
+    input_shape = X_train.shape[1:]
     
     # Create model based on type
     if args.model_type == 'ann':
@@ -91,25 +87,25 @@ def main():
     elif args.model_type == 'regularized_ann':
         model = MusicGenreModels.create_regularized_ann_model(input_shape)
     elif args.model_type == 'cnn':
-        # Use original CNN architecture from notebook
+        # Use original CNN architecture adapted for 1D
         from tensorflow.keras import Sequential
-        from tensorflow.keras.layers import Conv2D, MaxPool2D, BatchNormalization, Flatten, Dense, Dropout
+        from tensorflow.keras.layers import Conv1D, MaxPooling1D, BatchNormalization, Flatten, Dense, Dropout
         
         model = Sequential([
-            Conv2D(64, (3, 3), activation="relu", input_shape=input_shape),
-            MaxPool2D((3, 3), strides=(2, 2), padding="same"),
+            Conv1D(64, 3, activation="relu", input_shape=input_shape),
+            MaxPooling1D(3, strides=2, padding="same"),
             BatchNormalization(),
             
-            Conv2D(32, (3, 3), activation="relu"),
-            MaxPool2D((3, 3), strides=(2, 2), padding="same"),
+            Conv1D(32, 3, activation="relu"),
+            MaxPooling1D(3, strides=2, padding="same"),
             BatchNormalization(),
             
-            Conv2D(32, (2, 2), activation="relu"),
-            MaxPool2D((2, 2), strides=(2, 2), padding="same"),
+            Conv1D(32, 2, activation="relu"),
+            MaxPooling1D(2, strides=2, padding="same"),
             BatchNormalization(),
             
-            Conv2D(16, (1, 1), activation="relu"),
-            MaxPool2D((1, 1), strides=(2, 2), padding="same"),
+            Conv1D(16, 1, activation="relu"),
+            MaxPooling1D(1, strides=2, padding="same"),
             BatchNormalization(),
             
             Flatten(),
@@ -117,6 +113,12 @@ def main():
             Dropout(0.3),
             Dense(10, activation="softmax")
         ])
+        
+        model.compile(
+            optimizer='adam',
+            loss='sparse_categorical_crossentropy',
+            metrics=['accuracy']
+        )
     elif args.model_type == 'improved_cnn':
         model = MusicGenreModels.create_improved_cnn_model(input_shape)
     elif args.model_type == 'residual_cnn':

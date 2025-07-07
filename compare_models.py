@@ -62,27 +62,21 @@ class ModelComparator:
             self.load_data()
             
         model_configs = [
-            ('ANN', 'ann', False),
-            ('Regularized ANN', 'regularized_ann', False),
-            ('CNN', 'improved_cnn', True),
-            ('Residual CNN', 'residual_cnn', True),
-            ('LSTM', 'lstm', False)
+            ('ANN', 'ann'),
+            ('Regularized ANN', 'regularized_ann'),
+            ('CNN', 'improved_cnn'),
+            ('Residual CNN', 'residual_cnn'),
+            ('LSTM', 'lstm')
         ]
         
-        for name, model_type, is_cnn in model_configs:
+        for name, model_type in model_configs:
             print(f"\nTraining {name}...")
             
-            # Prepare data based on model type
-            if is_cnn:
-                X_train = self.data['X_train'][..., np.newaxis]
-                X_val = self.data['X_val'][..., np.newaxis]
-                X_test = self.data['X_test'][..., np.newaxis]
-                input_shape = X_train.shape[1:]
-            else:
-                X_train = self.data['X_train']
-                X_val = self.data['X_val']
-                X_test = self.data['X_test']
-                input_shape = X_train.shape[1:]
+            # All models now use the same data format
+            X_train = self.data['X_train']
+            X_val = self.data['X_val']
+            X_test = self.data['X_test']
+            input_shape = X_train.shape[1:]
             
             # Create model
             if model_type == 'ann':
@@ -114,8 +108,7 @@ class ModelComparator:
             self.models[name] = {
                 'model': model,
                 'history': history,
-                'test_data': (X_test, self.data['y_test']),
-                'is_cnn': is_cnn
+                'test_data': (X_test, self.data['y_test'])
             }
             self.results[name] = results
             

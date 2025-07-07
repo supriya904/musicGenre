@@ -4,7 +4,12 @@ Neural network models for music genre classification
 
 import tensorflow as tf
 from tensorflow.keras import Sequential, Model
-from tensorflow.keras.layers import *
+from tensorflow.keras.layers import (
+    Dense, Conv1D, Conv2D, MaxPooling1D, MaxPooling2D, 
+    Flatten, Dropout, LSTM, BatchNormalization, 
+    GlobalAveragePooling1D, GlobalAveragePooling2D, Input, Add,
+    TimeDistributed, Reshape
+)
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.regularizers import l2
 from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau, ModelCheckpoint
@@ -32,6 +37,12 @@ class MusicGenreModels:
             Dense(64, activation='relu'),
             Dense(num_classes, activation='softmax')
         ])
+        
+        model.compile(
+            optimizer=Adam(learning_rate=LEARNING_RATE),
+            loss='sparse_categorical_crossentropy',
+            metrics=['accuracy']
+        )
         
         return model
     
@@ -66,15 +77,22 @@ class MusicGenreModels:
             Dense(num_classes, activation='softmax')
         ])
         
+        model.compile(
+            optimizer=Adam(learning_rate=LEARNING_RATE),
+            loss='sparse_categorical_crossentropy',
+            metrics=['accuracy']
+        )
+        
         return model
     
     @staticmethod
     def create_improved_cnn_model(input_shape, num_classes=10, dropout_rate=DROPOUT_RATE):
         """
-        Create an improved CNN model with batch normalization and better architecture
+        Create an improved CNN model for 1D audio data (MFCC features)
+        Input shape should be (time_steps, features) = (130, 13)
         
         Args:
-            input_shape: Shape of input data (height, width, channels)
+            input_shape: Shape of input data (time_steps, features)
             num_classes: Number of output classes
             dropout_rate: Dropout probability
             
@@ -83,42 +101,51 @@ class MusicGenreModels:
         """
         model = Sequential([
             # First convolutional block
-            Conv2D(32, (3, 3), activation='relu', input_shape=input_shape),
+            Conv1D(64, kernel_size=3, activation='relu', input_shape=input_shape),
             BatchNormalization(),
-            Conv2D(32, (3, 3), activation='relu'),
-            MaxPooling2D((2, 2)),
+            Conv1D(64, kernel_size=3, activation='relu'),
+            MaxPooling1D(pool_size=2),
             Dropout(0.25),
             
             # Second convolutional block
-            Conv2D(64, (3, 3), activation='relu'),
+            Conv1D(128, kernel_size=3, activation='relu'),
             BatchNormalization(),
-            Conv2D(64, (3, 3), activation='relu'),
-            MaxPooling2D((2, 2)),
+            Conv1D(128, kernel_size=3, activation='relu'),
+            MaxPooling1D(pool_size=2),
             Dropout(0.25),
             
             # Third convolutional block
-            Conv2D(128, (3, 3), activation='relu'),
+            Conv1D(256, kernel_size=3, activation='relu'),
             BatchNormalization(),
             Dropout(0.25),
             
             # Global average pooling instead of Flatten
-            GlobalAveragePooling2D(),
+            GlobalAveragePooling1D(),
             
             # Dense layers
-            Dense(128, activation='relu'),
+            Dense(512, activation='relu'),
+            BatchNormalization(),
             Dropout(dropout_rate),
+            Dense(256, activation='relu'),
+            Dropout(0.3),
             Dense(num_classes, activation='softmax')
         ])
+        
+        model.compile(
+            optimizer=Adam(learning_rate=LEARNING_RATE),
+            loss='sparse_categorical_crossentropy',
+            metrics=['accuracy']
+        )
         
         return model
     
     @staticmethod
     def create_residual_cnn_model(input_shape, num_classes=10):
         """
-        Create a CNN with residual connections
+        Create a CNN with residual connections for 1D audio data
         
         Args:
-            input_shape: Shape of input data
+            input_shape: Shape of input data (time_steps, features)
             num_classes: Number of output classes
             
         Returns:
@@ -127,36 +154,45 @@ class MusicGenreModels:
         inputs = Input(shape=input_shape)
         
         # Initial conv
-        x = Conv2D(32, (3, 3), activation='relu', padding='same')(inputs)
+        x = Conv1D(64, 3, activation='relu', padding='same')(inputs)
         x = BatchNormalization()(x)
         
         # Residual block 1
         shortcut = x
-        x = Conv2D(32, (3, 3), activation='relu', padding='same')(x)
+        x = Conv1D(64, 3, activation='relu', padding='same')(x)
         x = BatchNormalization()(x)
-        x = Conv2D(32, (3, 3), activation='relu', padding='same')(x)
+        x = Conv1D(64, 3, activation='relu', padding='same')(x)
         x = BatchNormalization()(x)
         x = Add()([x, shortcut])
-        x = MaxPooling2D((2, 2))(x)
+        x = MaxPooling1D(2)(x)
         x = Dropout(0.25)(x)
         
         # Residual block 2
-        shortcut = Conv2D(64, (1, 1), padding='same')(x)  # Match dimensions
-        x = Conv2D(64, (3, 3), activation='relu', padding='same')(x)
+        shortcut = Conv1D(128, 1, padding='same')(x)  # Match dimensions
+        x = Conv1D(128, 3, activation='relu', padding='same')(x)
         x = BatchNormalization()(x)
-        x = Conv2D(64, (3, 3), activation='relu', padding='same')(x)
+        x = Conv1D(128, 3, activation='relu', padding='same')(x)
         x = BatchNormalization()(x)
         x = Add()([x, shortcut])
-        x = MaxPooling2D((2, 2))(x)
+        x = MaxPooling1D(2)(x)
         x = Dropout(0.25)(x)
         
         # Final layers
-        x = GlobalAveragePooling2D()(x)
-        x = Dense(128, activation='relu')(x)
+        x = GlobalAveragePooling1D()(x)
+        x = Dense(512, activation='relu')(x)
         x = Dropout(0.5)(x)
+        x = Dense(256, activation='relu')(x)
+        x = Dropout(0.3)(x)
         outputs = Dense(num_classes, activation='softmax')(x)
         
         model = Model(inputs, outputs)
+        
+        model.compile(
+            optimizer=Adam(learning_rate=LEARNING_RATE),
+            loss='sparse_categorical_crossentropy',
+            metrics=['accuracy']
+        )
+        
         return model
     
     @staticmethod
@@ -183,41 +219,55 @@ class MusicGenreModels:
             Dense(num_classes, activation='softmax')
         ])
         
+        model.compile(
+            optimizer=Adam(learning_rate=LEARNING_RATE),
+            loss='sparse_categorical_crossentropy',
+            metrics=['accuracy']
+        )
+        
         return model
     
     @staticmethod
     def create_cnn_lstm_hybrid(input_shape, num_classes=10):
         """
-        Create a hybrid CNN-LSTM model
+        Create a hybrid CNN-LSTM model for 1D audio data
         
         Args:
-            input_shape: Shape of input data (height, width, channels)
+            input_shape: Shape of input data (time_steps, features)
             num_classes: Number of output classes
             
         Returns:
             Compiled Keras model
         """
         model = Sequential([
-            # CNN feature extraction
-            Conv2D(32, (3, 3), activation='relu', input_shape=input_shape),
+            # CNN layers for local feature extraction
+            Conv1D(64, kernel_size=3, activation='relu', input_shape=input_shape),
             BatchNormalization(),
-            MaxPooling2D((2, 2)),
+            Conv1D(64, kernel_size=3, activation='relu'),
+            MaxPooling1D(pool_size=2),
+            Dropout(0.25),
             
-            Conv2D(64, (3, 3), activation='relu'),
+            Conv1D(128, kernel_size=3, activation='relu'),
             BatchNormalization(),
-            MaxPooling2D((2, 2)),
+            Dropout(0.25),
             
-            # Reshape for LSTM
-            TimeDistributed(Flatten()),
-            
-            # LSTM for temporal modeling
-            LSTM(64, return_sequences=True),
+            # LSTM layers for sequential modeling
+            LSTM(128, return_sequences=True),
             Dropout(0.3),
-            LSTM(32),
+            LSTM(64),
             Dropout(0.3),
             
+            # Dense layers
+            Dense(128, activation='relu'),
+            Dropout(0.5),
             Dense(num_classes, activation='softmax')
         ])
+        
+        model.compile(
+            optimizer=Adam(learning_rate=LEARNING_RATE),
+            loss='sparse_categorical_crossentropy',
+            metrics=['accuracy']
+        )
         
         return model
 
