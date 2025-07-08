@@ -164,6 +164,7 @@ def main():
     # Evaluate on test set
     results = evaluator.evaluate_model(model, X_test, y_test)
     results['y_test'] = y_test  # Add for confusion matrix generation
+    results['y_true'] = y_test  # Add for classification report generation
     
     # Generate comprehensive experiment report
     print("Generating experiment report...")

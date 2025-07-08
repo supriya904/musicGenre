@@ -106,6 +106,9 @@ class ExperimentReporter:
         recall_str = f"{recall_val:.4f}" if isinstance(recall_val, (int, float)) else "N/A"
         f1_str = f"{f1_val:.4f}" if isinstance(f1_val, (int, float)) else "N/A"
         
+        # Generate detailed classification report table
+        detailed_report_table = self._generate_detailed_classification_table(results)
+        
         # Generate report content
         markdown_content = f"""# Music Genre Classification Experiment Report
 
@@ -144,6 +147,8 @@ class ExperimentReporter:
 | **Test Precision** | {precision_str} |
 | **Test Recall** | {recall_str} |
 | **Test F1-Score** | {f1_str} |
+
+{detailed_report_table}
 
 ### Training Progress
 | Epoch | Train Acc | Val Acc | Train Loss | Val Loss |
@@ -192,18 +197,20 @@ class ExperimentReporter:
         model.summary(print_fn=model_summary.append)
         markdown_content += "```\n" + "\n".join(model_summary) + "\n```\n"
 
+        # Add performance analysis
+        performance_analysis = self._generate_performance_analysis(results, mapping)
+        markdown_content += performance_analysis
+
         markdown_content += f"""
 
 ## Genre Classification Results
 
 ### Class Performance
-| Genre | Accuracy | Notes |
-|-------|----------|-------|
 """
 
-        # Add per-class performance if available
-        for i, genre in enumerate(mapping):
-            markdown_content += f"| {genre.capitalize()} | - | - |\n"
+        # Add per-class performance from results
+        class_performance_table = self._generate_class_performance_table(results, mapping)
+        markdown_content += class_performance_table
 
         markdown_content += f"""
 
@@ -311,3 +318,140 @@ class ExperimentReporter:
     def get_tensorboard_logdir(self):
         """Get TensorBoard log directory for this experiment"""
         return self.logs_dir
+    
+    def _generate_detailed_classification_table(self, results):
+        """Generate detailed classification report table from results"""
+        try:
+            # Try to get predictions and actual labels from results
+            y_true = results.get('y_test', results.get('y_true', []))
+            y_pred = results.get('predictions', [])
+            
+            if len(y_true) == 0 or len(y_pred) == 0:
+                return "\n### Detailed Classification Report\n\n*Classification data not available*\n"
+            
+            from sklearn.metrics import classification_report
+            
+            # Generate classification report
+            report = classification_report(y_true, y_pred, output_dict=True, zero_division=0)
+            
+            table = "\n### Detailed Classification Report\n\n"
+            table += "| Genre | Precision | Recall | F1-Score | Support |\n"
+            table += "|-------|-----------|--------|----------|----------|\n"
+            
+            # Add each class
+            for class_name, metrics in report.items():
+                if class_name not in ['accuracy', 'macro avg', 'weighted avg']:
+                    if isinstance(metrics, dict):
+                        precision = f"{metrics.get('precision', 0):.2f}"
+                        recall = f"{metrics.get('recall', 0):.2f}"
+                        f1_score = f"{metrics.get('f1-score', 0):.2f}"
+                        support = int(metrics.get('support', 0))
+                        table += f"| **{class_name}** | {precision} | {recall} | {f1_score} | {support} |\n"
+            
+            # Add overall metrics
+            if 'accuracy' in report:
+                accuracy = f"{report['accuracy']:.2f}"
+                total_support = sum([metrics.get('support', 0) for metrics in report.values() 
+                                   if isinstance(metrics, dict) and 'support' in metrics])
+                table += f"| **Overall** | **{accuracy}** | **{accuracy}** | **{accuracy}** | **{total_support}** |\n"
+            
+            return table
+            
+        except Exception as e:
+            return f"\n### Detailed Classification Report\n\n*Error generating report: {str(e)}*\n"
+    
+    def _generate_performance_analysis(self, results, mapping):
+        """Generate performance analysis section"""
+        try:
+            y_true = results.get('y_test', results.get('y_true', []))
+            y_pred = results.get('predictions', [])
+            
+            if len(y_true) == 0 or len(y_pred) == 0:
+                return "\n## Performance Analysis\n\n*Analysis not available*\n"
+            
+            from sklearn.metrics import classification_report
+            
+            # Generate classification report
+            report = classification_report(y_true, y_pred, output_dict=True, zero_division=0)
+            
+            # Find best and worst performing genres
+            genre_scores = []
+            for class_name, metrics in report.items():
+                if class_name not in ['accuracy', 'macro avg', 'weighted avg'] and isinstance(metrics, dict):
+                    f1_score = metrics.get('f1-score', 0)
+                    genre_scores.append((class_name, f1_score))
+            
+            genre_scores.sort(key=lambda x: x[1], reverse=True)
+            
+            analysis = "\n## Performance Analysis\n\n"
+            
+            # Best performers
+            analysis += "### Best Performing Genres\n"
+            for i, (genre, score) in enumerate(genre_scores[:3], 1):
+                analysis += f"{i}. **{genre.title()}**: F1-Score {score:.3f}\n"
+            
+            # Challenging genres
+            analysis += "\n### Challenging Genres\n"
+            for i, (genre, score) in enumerate(genre_scores[-3:], 1):
+                analysis += f"{i}. **{genre.title()}**: F1-Score {score:.3f} (needs improvement)\n"
+            
+            # Key insights
+            analysis += "\n### Key Insights\n"
+            best_score = genre_scores[0][1] if genre_scores else 0
+            worst_score = genre_scores[-1][1] if genre_scores else 0
+            analysis += f"- Performance gap between best and worst genres: {(best_score - worst_score):.3f}\n"
+            analysis += f"- Overall model consistency: {'Good' if (best_score - worst_score) < 0.3 else 'Needs improvement'}\n"
+            
+            return analysis
+            
+        except Exception as e:
+            return f"\n## Performance Analysis\n\n*Error generating analysis: {str(e)}*\n"
+    
+    def _generate_class_performance_table(self, results, mapping):
+        """Generate class performance table"""
+        try:
+            y_true = results.get('y_test', results.get('y_true', []))
+            y_pred = results.get('predictions', [])
+            
+            if len(y_true) == 0 or len(y_pred) == 0:
+                return "| Genre | Precision | Recall | F1-Score | Notes |\n|-------|-----------|--------|----------|-------|\n| *Data not available* | - | - | - | - |\n"
+            
+            from sklearn.metrics import classification_report
+            
+            # Generate classification report
+            report = classification_report(y_true, y_pred, output_dict=True, zero_division=0)
+            
+            table = "| Genre | Precision | Recall | F1-Score | Notes |\n"
+            table += "|-------|-----------|--------|----------|-------|\n"
+            
+            # Add each class with notes
+            for class_name, metrics in report.items():
+                if class_name not in ['accuracy', 'macro avg', 'weighted avg'] and isinstance(metrics, dict):
+                    precision = metrics.get('precision', 0)
+                    recall = metrics.get('recall', 0)
+                    f1_score = metrics.get('f1-score', 0)
+                    
+                    # Generate notes based on performance
+                    notes = []
+                    if f1_score > 0.8:
+                        notes.append("Excellent")
+                    elif f1_score > 0.7:
+                        notes.append("Good")
+                    elif f1_score > 0.6:
+                        notes.append("Fair")
+                    else:
+                        notes.append("Needs improvement")
+                    
+                    if precision > recall + 0.1:
+                        notes.append("High precision")
+                    elif recall > precision + 0.1:
+                        notes.append("High recall")
+                    
+                    note_str = ", ".join(notes)
+                    
+                    table += f"| **{class_name.title()}** | {precision:.3f} | {recall:.3f} | {f1_score:.3f} | {note_str} |\n"
+            
+            return table
+            
+        except Exception as e:
+            return f"| Genre | Precision | Recall | F1-Score | Notes |\n|-------|-----------|--------|----------|-------|\n| *Error: {str(e)}* | - | - | - | - |\n"
