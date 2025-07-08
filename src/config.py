@@ -24,6 +24,12 @@ MODELS_DIR = os.path.join(PROJECT_ROOT, "models")
 os.makedirs(DATA_DIR, exist_ok=True)
 os.makedirs(MODELS_DIR, exist_ok=True)
 
+# Experiment tracking directories
+EXPERIMENTS_DIR = os.path.join(PROJECT_ROOT, "experiments")
+TENSORBOARD_DIR = os.path.join(PROJECT_ROOT, "tensorboard_logs")
+os.makedirs(EXPERIMENTS_DIR, exist_ok=True)
+os.makedirs(TENSORBOARD_DIR, exist_ok=True)
+
 # Genre mapping
 GENRE_MAPPING = {
     0: "disco",

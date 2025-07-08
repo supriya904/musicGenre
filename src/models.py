@@ -294,12 +294,13 @@ class ModelTrainer:
             
         self.model.compile(optimizer=optimizer, loss=loss, metrics=metrics)
         
-    def get_callbacks(self, model_save_path=None):
+    def get_callbacks(self, model_save_path=None, tensorboard_log_dir=None):
         """
-        Get training callbacks
+        Get training callbacks including TensorBoard
         
         Args:
             model_save_path: Path to save best model
+            tensorboard_log_dir: Directory for TensorBoard logs
             
         Returns:
             List of callbacks
@@ -319,6 +320,20 @@ class ModelTrainer:
                 verbose=1
             )
         ]
+        
+        # Add TensorBoard callback if log directory provided
+        if tensorboard_log_dir:
+            from tensorflow.keras.callbacks import TensorBoard
+            callbacks.append(
+                TensorBoard(
+                    log_dir=tensorboard_log_dir,
+                    histogram_freq=1,
+                    write_graph=True,
+                    write_images=True,
+                    update_freq='epoch',
+                    profile_batch=0
+                )
+            )
         
         if model_save_path:
             callbacks.append(
