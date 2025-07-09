@@ -1,3 +1,7 @@
+# TensorBoard Commands for Various Models
+
+## "Your command would be different as per models experiment file path"
+
 ## Improved CNN TensorBoard Command
 ## To visualize training metrics and model performance, use TensorBoard.
 
@@ -27,4 +31,11 @@ To visualize the training metrics for the Residual CNN model, use the following 
 ```bash
  tensorboard --logdir='C:\Users\barad\OneDrive\Desktop\musicGenre\experiments\residual_cnn_20250709_194503\logs'
  ```
+   Then open: http://localhost:6006
+
+# Basic Cnn TensorBoard Command
+To visualize the training metrics for the Basic CNN model, use the following command:  
+```bash  
+ tensorboard --logdir='C:\Users\barad\OneDrive\Desktop\musicGenre\experiments\cnn_20250709_195710\logs'
+```
    Then open: http://localhost:6006
