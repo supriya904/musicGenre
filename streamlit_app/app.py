@@ -42,7 +42,7 @@ N_FFT = 2048
 HOP_LENGTH = 512
 
 def extract_features(file_path):
-    """Extract MFCC features from audio file"""
+    """Extract MFCC features from audio file to match model input shape"""
     try:
         # Load audio file
         y, sr = librosa.load(file_path, sr=SAMPLE_RATE, duration=DURATION)
@@ -51,10 +51,20 @@ def extract_features(file_path):
         mfccs = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=N_MFCC, 
                                    n_fft=N_FFT, hop_length=HOP_LENGTH)
         
-        # Take the mean across time to get fixed-size features
-        mfccs_mean = np.mean(mfccs.T, axis=0)
+        # Transpose to get (time_steps, n_mfcc) format
+        mfccs = mfccs.T
         
-        return mfccs_mean
+        # Pad or truncate to fixed length (130 time steps)
+        target_length = 130
+        if mfccs.shape[0] > target_length:
+            # Truncate if too long
+            mfccs = mfccs[:target_length]
+        elif mfccs.shape[0] < target_length:
+            # Pad with zeros if too short
+            pad_width = target_length - mfccs.shape[0]
+            mfccs = np.pad(mfccs, ((0, pad_width), (0, 0)), mode='constant')
+        
+        return mfccs
         
     except Exception as e:
         raise Exception(f"Error extracting features: {str(e)}")
@@ -144,9 +154,14 @@ class MusicGenrePredictor:
             # Extract features
             features = extract_features(tmp_path)
             
-            # Prepare features for prediction
-            if len(features.shape) == 1:
-                features = features.reshape(1, -1)
+            # Prepare features for prediction - shape should be (1, 130, 13)
+            if len(features.shape) == 2:
+                features = features.reshape(1, features.shape[0], features.shape[1])
+            
+            # Verify shape
+            expected_shape = (1, 130, 13)
+            if features.shape != expected_shape:
+                raise ValueError(f"Feature shape mismatch. Expected {expected_shape}, got {features.shape}")
             
             # Make prediction
             predictions = self.model.predict(features, verbose=0)
