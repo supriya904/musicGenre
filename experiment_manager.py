@@ -47,8 +47,8 @@ class ExperimentManager:
                 'Experiment ID': exp['experiment_id'],
                 'Model Type': exp['model_type'],
                 'Timestamp': exp['timestamp'],
-                'Final Accuracy': f"{exp['final_accuracy']:.4f}",
-                'Best Val Accuracy': f"{exp['best_val_accuracy']:.4f}",
+                'Final Accuracy': f"{exp['final_accuracy']*100:.2f}%",
+                'Best Val Accuracy': f"{exp['best_val_accuracy']*100:.2f}%",
                 'Total Epochs': exp['total_epochs'],
                 'Batch Size': exp['args'].get('batch_size', 'N/A'),
                 'Learning Rate': exp['args'].get('learning_rate', 'N/A')
@@ -72,7 +72,8 @@ class ExperimentManager:
         print(f"\n🏆 BEST PERFORMING EXPERIMENT:")
         print(f"   ID: {best_exp['experiment_id']}")
         print(f"   Model: {best_exp['model_type']}")
-        print(f"   Accuracy: {best_exp['final_accuracy']:.4f}")
+        print(f"   Accuracy: {best_exp['final_accuracy']*100:.2f}%")
+        print(f"   Val Accuracy: {best_exp['best_val_accuracy']*100:.2f}%")
         
         return df
     
@@ -128,7 +129,7 @@ Generated on: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
 
 ## Overview
 - Total Experiments: {len(experiments)}
-- Best Accuracy: {max(exp['final_accuracy'] for exp in experiments):.4f}
+- Best Accuracy: {max(exp['final_accuracy'] for exp in experiments)*100:.2f}%
 - Date Range: {min(exp['timestamp'] for exp in experiments)} to {max(exp['timestamp'] for exp in experiments)}
 
 ## Experiment Results Summary
@@ -138,7 +139,7 @@ Generated on: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
 """
         
         for exp in experiments:
-            report_content += f"| {exp['experiment_id']} | {exp['model_type']} | {exp['final_accuracy']:.4f} | {exp['best_val_accuracy']:.4f} | {exp['total_epochs']} | {exp['timestamp'][:10]} |\n"
+            report_content += f"| {exp['experiment_id']} | {exp['model_type']} | {exp['final_accuracy']*100:.2f}% | {exp['best_val_accuracy']*100:.2f}% | {exp['total_epochs']} | {exp['timestamp'][:10]} |\n"
         
         # Model type analysis
         model_types = {}
@@ -160,7 +161,7 @@ Generated on: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
             best_acc = max(accuracies)
             avg_acc = sum(accuracies) / len(accuracies)
             count = len(accuracies)
-            report_content += f"| {model_type} | {count} | {best_acc:.4f} | {avg_acc:.4f} |\n"
+            report_content += f"| {model_type} | {count} | {best_acc*100:.2f}% | {avg_acc*100:.2f}% |\n"
         
         # Best experiment details
         best_exp = max(experiments, key=lambda x: x['final_accuracy'])
@@ -170,8 +171,8 @@ Generated on: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
 
 **Experiment ID:** {best_exp['experiment_id']}
 - **Model Type:** {best_exp['model_type']}
-- **Final Accuracy:** {best_exp['final_accuracy']:.4f}
-- **Best Validation Accuracy:** {best_exp['best_val_accuracy']:.4f}
+- **Final Accuracy:** {best_exp['final_accuracy']*100:.2f}%
+- **Best Validation Accuracy:** {best_exp['best_val_accuracy']*100:.2f}%
 - **Total Epochs:** {best_exp['total_epochs']}
 - **Timestamp:** {best_exp['timestamp']}
 
@@ -186,7 +187,9 @@ Generated on: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
 """
         
         # Save report
-        report_path = os.path.join(PROJECT_ROOT, "experiment_summary.md")
+        results_dir = os.path.join(PROJECT_ROOT, "results")
+        os.makedirs(results_dir, exist_ok=True)
+        report_path = os.path.join(results_dir, "experiment_summary.md")
         with open(report_path, 'w', encoding='utf-8') as f:
             f.write(report_content)
         
@@ -212,7 +215,7 @@ def main():
         experiments = manager.list_experiments()
         print(f"\n📁 Found {len(experiments)} experiments:")
         for exp in experiments:
-            print(f"   {exp['experiment_id']} ({exp['model_type']}) - Accuracy: {exp['final_accuracy']:.4f}")
+            print(f"   {exp['experiment_id']} ({exp['model_type']}) - Accuracy: {exp['final_accuracy']*100:.2f}%")
     
     elif args.compare:
         manager.compare_experiments(args.output)
@@ -225,7 +228,8 @@ def main():
         if details:
             print(f"\n📊 Experiment Details: {args.details}")
             print(f"   Model Type: {details['metadata']['model_type']}")
-            print(f"   Final Accuracy: {details['metadata']['final_accuracy']:.4f}")
+            print(f"   Final Accuracy: {details['metadata']['final_accuracy']*100:.2f}%")
+            print(f"   Best Val Accuracy: {details['metadata']['best_val_accuracy']*100:.2f}%")
             print(f"   Timestamp: {details['metadata']['timestamp']}")
             print(f"   Path: {details['experiment_path']}")
     
