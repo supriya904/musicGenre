@@ -12,3 +12,10 @@ To visualize the training metrics for the Regularized ANN model, use the followi
 ```bash
 tensorboard --logdir='C:\Users\barad\OneDrive\Desktop\musicGenre\experiments\regularized_ann_20250709_102239\logs'
 ```
+# lstm TensorBoard Command
+To visualize the training metrics for the LSTM model, use the following command:
+
+```bash
+   tensorboard --logdir='C:\Users\barad\OneDrive\Desktop\musicGenre\experiments\lstm_20250709_111701\logs'
+```
+Then open: http://localhost:6006
