@@ -19,3 +19,12 @@ To visualize the training metrics for the LSTM model, use the following command:
    tensorboard --logdir='C:\Users\barad\OneDrive\Desktop\musicGenre\experiments\lstm_20250709_111701\logs'
 ```
 Then open: http://localhost:6006
+
+# residual_cnn TensorBoard Command
+
+To visualize the training metrics for the Residual CNN model, use the following command:
+
+```bash
+ tensorboard --logdir='C:\Users\barad\OneDrive\Desktop\musicGenre\experiments\residual_cnn_20250709_194503\logs'
+ ```
+   Then open: http://localhost:6006
