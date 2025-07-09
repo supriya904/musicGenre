@@ -30,6 +30,13 @@ tf.get_logger().setLevel('ERROR')
 parent_dir = Path(__file__).parent.parent
 sys.path.insert(0, str(parent_dir))
 
+# Import custom modules
+try:
+    from model_info import display_model_details, display_model_comparison, display_architecture_info
+    from app_utils import display_genre_info, create_feature_info_section, app_info_section, display_tips_and_tricks, load_experiment_summary
+except ImportError as e:
+    st.warning(f"Could not import custom modules: {e}. Some features may be limited.")
+
 # Define genre labels (from GTZAN dataset)
 GENRE_LABELS = ['blues', 'classical', 'country', 'disco', 'hiphop', 
                 'jazz', 'metal', 'pop', 'reggae', 'rock']
@@ -299,48 +306,125 @@ def main():
     st.markdown('<h1 class="main-header">🎵 Music Genre Classifier</h1>', unsafe_allow_html=True)
     st.markdown("**Upload an audio file and discover its genre using deep learning!**")
     
+    # Create tabs for different sections
+    tab1, tab2, tab3, tab4, tab5 = st.tabs([
+        "🎯 Prediction", 
+        "🔍 Model Details", 
+        "📊 Comparison", 
+        "📚 Learn More", 
+        "ℹ️ About"
+    ])
+    
     # Initialize predictor
     if 'predictor' not in st.session_state:
         st.session_state.predictor = MusicGenrePredictor()
     
-    # Sidebar for model selection
-    st.sidebar.header("🤖 Model Configuration")
+    # Sidebar for model selection (shared across tabs)
+    with st.sidebar:
+        st.header("🤖 Model Configuration")
+        
+        # Debug information
+        with st.expander("🔍 Debug Info", expanded=False):
+            st.write(f"**Current file:** {__file__}")
+            st.write(f"**Parent dir:** {parent_dir}")
+            st.write(f"**Models path:** {parent_dir / 'models'}")
+            st.write(f"**Models exists:** {(parent_dir / 'models').exists()}")
+        
+        # Get available models
+        available_models = get_available_models()
+        
+        if not available_models:
+            st.error("No trained models found in the models/ directory!")
+            st.error("⚠️ Please train a model first using the main training scripts.")
+            return
+        
+        # Model selection
+        selected_model = st.selectbox(
+            "Choose a trained model:",
+            available_models,
+            format_func=lambda x: os.path.basename(x)
+        )
+        
+        # Load model button
+        if st.button("🔄 Load Model"):
+            with st.spinner("Loading model..."):
+                if st.session_state.predictor.load_model(selected_model):
+                    st.success(f"✅ Model loaded: {os.path.basename(selected_model)}")
+                else:
+                    st.error("❌ Failed to load model")
+        
+        # Model info
+        if st.session_state.predictor.model is not None:
+            st.info(f"**Current Model:** {st.session_state.predictor.model_name}")
+            st.info(f"**Supported Genres:** {', '.join(GENRE_LABELS[:5])}...")
     
-    # Debug information
-    with st.sidebar.expander("🔍 Debug Info", expanded=False):
-        st.write(f"**Current file:** {__file__}")
-        st.write(f"**Parent dir:** {parent_dir}")
-        st.write(f"**Models path:** {parent_dir / 'models'}")
-        st.write(f"**Models exists:** {(parent_dir / 'models').exists()}")
+    # Tab 1: Main Prediction Interface
+    with tab1:
+        prediction_interface()
     
-    # Get available models
-    available_models = get_available_models()
-    
-    if not available_models:
-        st.sidebar.error("No trained models found in the models/ directory!")
-        st.error("⚠️ No trained models available. Please train a model first using the main training scripts.")
-        return
-    
-    # Model selection
-    selected_model = st.sidebar.selectbox(
-        "Choose a trained model:",
-        available_models,
-        format_func=lambda x: os.path.basename(x)
-    )
-    
-    # Load model button
-    if st.sidebar.button("🔄 Load Model"):
-        with st.spinner("Loading model..."):
-            if st.session_state.predictor.load_model(selected_model):
-                st.sidebar.success(f"✅ Model loaded: {os.path.basename(selected_model)}")
+    # Tab 2: Model Details
+    with tab2:
+        if st.session_state.predictor.model is not None:
+            model_path = None
+            for model in available_models:
+                if os.path.basename(model) == st.session_state.predictor.model_name:
+                    model_path = model
+                    break
+            
+            if model_path:
+                try:
+                    display_model_details(model_path)
+                except:
+                    st.error("Could not load model details. Please ensure model_info module is available.")
+                    basic_model_info(model_path)
             else:
-                st.sidebar.error("❌ Failed to load model")
+                st.warning("Model path not found for detailed analysis.")
+        else:
+            st.warning("⚠️ Please load a model first to see detailed information.")
     
-    # Model info
-    if st.session_state.predictor.model is not None:
-        st.sidebar.info(f"**Current Model:** {st.session_state.predictor.model_name}")
-        st.sidebar.info(f"**Supported Genres:** {', '.join(GENRE_LABELS)}")
+    # Tab 3: Model Comparison
+    with tab3:
+        try:
+            display_model_comparison()
+        except:
+            st.error("Could not load model comparison. Please ensure experiment data is available.")
+            st.info("Train multiple models to see comparison data here.")
+        
+        # Architecture information
+        try:
+            display_architecture_info()
+        except:
+            basic_architecture_info()
     
+    # Tab 4: Learn More
+    with tab4:
+        try:
+            display_genre_info()
+            create_feature_info_section()
+        except:
+            basic_genre_info()
+            basic_feature_info()
+    
+    # Tab 5: About
+    with tab5:
+        try:
+            app_info_section()
+            display_tips_and_tricks()
+        except:
+            basic_about_info()
+        
+        # Show experiment summary if available
+        try:
+            summary = load_experiment_summary()
+            if summary:
+                st.subheader("📋 Experiment Summary Report")
+                with st.expander("View Full Summary", expanded=False):
+                    st.markdown(summary)
+        except:
+            pass
+
+def prediction_interface():
+    """Main prediction interface"""
     # Main content area
     col1, col2 = st.columns([1, 1])
     
@@ -443,6 +527,43 @@ def main():
         if st.button("🗑️ Clear History"):
             st.session_state.prediction_history = []
             st.rerun()
+
+def basic_model_info(model_path):
+    """Basic model info fallback"""
+    st.subheader("🔍 Basic Model Information")
+    model_name = os.path.basename(model_path)
+    model_size = os.path.getsize(model_path) / (1024 * 1024)
+    
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.metric("Model File", model_name)
+    with col2:
+        st.metric("File Size", f"{model_size:.1f} MB")
+    with col3:
+        st.metric("Format", "Keras HDF5")
+
+def basic_architecture_info():
+    """Basic architecture info fallback"""
+    st.subheader("🏗️ Model Architectures")
+    st.write("Information about different neural network architectures used in this project.")
+
+def basic_genre_info():
+    """Basic genre info fallback"""
+    st.subheader("🎵 Music Genres")
+    st.write("This system can classify music into 10 different genres:")
+    for i, genre in enumerate(GENRE_LABELS, 1):
+        st.write(f"{i}. **{genre.title()}**")
+
+def basic_feature_info():
+    """Basic feature info fallback"""
+    st.subheader("🔊 Audio Features")
+    st.write("The system uses MFCC (Mel-Frequency Cepstral Coefficients) features for classification.")
+
+def basic_about_info():
+    """Basic about info fallback"""
+    st.subheader("ℹ️ About This Application")
+    st.write("This is a music genre classification system built with deep learning.")
+    st.write("Upload audio files to get instant genre predictions!")
     
     # Footer
     st.markdown("---")
