@@ -180,13 +180,33 @@ class MusicGenrePredictor:
 
 def get_available_models():
     """Get list of available trained models"""
-    models_dir = parent_dir / "models"
-    if not models_dir.exists():
+    # Try multiple possible paths for the models directory
+    possible_paths = [
+        parent_dir / "models",  # ../models from streamlit_app
+        Path(__file__).parent.parent / "models",  # Alternative parent reference
+        Path("../models"),  # Relative path
+        Path("models"),  # Current directory
+    ]
+    
+    models_dir = None
+    for path in possible_paths:
+        if path.exists() and path.is_dir():
+            models_dir = path
+            break
+    
+    if not models_dir:
+        st.error(f"Models directory not found. Searched in: {[str(p) for p in possible_paths]}")
         return []
     
     model_files = []
     for model_file in models_dir.glob("*.h5"):
         model_files.append(str(model_file))
+    
+    if not model_files:
+        st.warning(f"No .h5 model files found in {models_dir}")
+        st.info("Available files in models directory:")
+        for file in models_dir.iterdir():
+            st.write(f"- {file.name}")
     
     return sorted(model_files)
 
@@ -270,6 +290,13 @@ def main():
     
     # Sidebar for model selection
     st.sidebar.header("🤖 Model Configuration")
+    
+    # Debug information
+    with st.sidebar.expander("🔍 Debug Info", expanded=False):
+        st.write(f"**Current file:** {__file__}")
+        st.write(f"**Parent dir:** {parent_dir}")
+        st.write(f"**Models path:** {parent_dir / 'models'}")
+        st.write(f"**Models exists:** {(parent_dir / 'models').exists()}")
     
     # Get available models
     available_models = get_available_models()
