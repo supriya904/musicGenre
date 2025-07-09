@@ -9,3 +9,7 @@ scipy
 ipython
 jupyter
 plotly
+streamlit
+soundfile
+pydub
+pillow
