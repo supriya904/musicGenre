@@ -1,8 +1,14 @@
-## 
-TensorBoard Command
+## Improved CNN TensorBoard Command
 ## To visualize training metrics and model performance, use TensorBoard.
 
 ```bash
 tensorboard --logdir='C:\Users\barad\OneDrive\Desktop\musicGenre\experiments\improved_cnn_20250709_100624\logs'
 ```
 Then open: http://localhost:6006
+
+## Regularized ANN TensorBoard Command
+To visualize the training metrics for the Regularized ANN model, use the following command:
+
+```bash
+tensorboard --logdir='C:\Users\barad\OneDrive\Desktop\musicGenre\experiments\regularized_ann_20250709_102239\logs'
+```
