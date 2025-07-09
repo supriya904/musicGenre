@@ -10,13 +10,17 @@ musicGenre/
 │   ├── config.py              # Configuration parameters
 │   ├── data_preprocessing.py  # Audio preprocessing utilities
 │   ├── models.py              # Neural network models
-│   └── evaluation.py          # Model evaluation utilities
+│   ├── evaluation.py          # Model evaluation utilities
+│   └── experiment_reporter.py # Experiment reporting system
+├── experiments/               # Organized experiment tracking
 ├── data/                      # Data directory (created automatically)
 ├── models/                    # Saved models directory (created automatically)
 ├── results/                   # Results directory (created automatically)
+├── tensorboard_logs/          # TensorBoard logs directory
 ├── train.py                   # Main training script
 ├── compare_models.py          # Model comparison script
 ├── predict.py                 # Inference script
+├── experiment_manager.py      # Experiment management CLI
 ├── requirements.txt           # Python dependencies
 └── README.md                  # This file
 ```
@@ -29,6 +33,8 @@ musicGenre/
 - **Model Comparison**: Side-by-side comparison of different architectures
 - **Ensemble Methods**: Combine multiple models for improved accuracy
 - **Inference Pipeline**: Easy prediction on new audio files
+- **Experiment Tracking**: Organized experiment management with Markdown reports
+- **TensorBoard Integration**: Interactive training visualization and monitoring
 - **Modular Design**: Clean, maintainable code structure
 
 ## Installation
@@ -109,6 +115,34 @@ python predict.py --model models/improved_cnn_20231215_143022.h5 --audio path/to
 # Include normalization parameters for better accuracy
 python predict.py --model models/improved_cnn_20231215_143022.h5 --audio song.wav --normalization results/improved_cnn_20231215_143022_normalization.json
 ```
+
+### 4. Experiment Tracking
+
+```bash
+# Train with comprehensive reporting (automatically generates markdown reports and TensorBoard logs)
+python train.py --model_type improved_cnn --epochs 50 --save_model
+
+# View TensorBoard (interactive training visualization)
+tensorboard --logdir=experiments/improved_cnn_20250708_143022/logs/
+
+# List all experiments
+python experiment_manager.py --list
+
+# Compare experiment performance
+python experiment_manager.py --compare
+
+# Generate comprehensive summary report
+python experiment_manager.py --summary
+
+# Get detailed experiment information
+python experiment_manager.py --details improved_cnn_20250708_143022
+```
+
+Each training session creates:
+- **Markdown Report**: `experiments/{run_name}/README.md` - Professional documentation
+- **TensorBoard Logs**: Interactive training visualization
+- **Training Plots**: High-quality PNG images for presentations
+- **JSON Data**: Machine-readable results for further analysis
 
 ## Model Performance
 
