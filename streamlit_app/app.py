@@ -37,41 +37,77 @@ try:
 except ImportError as e:
     st.warning(f"Could not import custom modules: {e}. Some features may be limited.")
 
-# Define genre labels (from GTZAN dataset)
-GENRE_LABELS = ['blues', 'classical', 'country', 'disco', 'hiphop', 
-                'jazz', 'metal', 'pop', 'reggae', 'rock']
+# Define genre labels (matching the actual model training order)
+GENRE_MAPPING = {
+    0: "disco",
+    1: "metal", 
+    2: "reggae",
+    3: "blues",
+    4: "rock",
+    5: "classical",
+    6: "jazz",
+    7: "hiphop",
+    8: "country",
+    9: "pop"
+}
 
-# Audio processing parameters
+GENRE_LABELS = [GENRE_MAPPING[i] for i in range(len(GENRE_MAPPING))]
+
+# Audio processing parameters (matching config.py)
 SAMPLE_RATE = 22050
 DURATION = 30
+SAMPLES_PER_TRACK = SAMPLE_RATE * DURATION
 N_MFCC = 13
 N_FFT = 2048
 HOP_LENGTH = 512
+NUM_SEGMENTS = 10
 
-def extract_features(file_path):
-    """Extract MFCC features from audio file to match model input shape"""
+def extract_features(file_path, num_segments=NUM_SEGMENTS):
+    """Extract MFCC features from audio file using the same logic as predict.py"""
     try:
         # Load audio file
-        y, sr = librosa.load(file_path, sr=SAMPLE_RATE, duration=DURATION)
+        signal, sr = librosa.load(file_path, sr=SAMPLE_RATE)
         
-        # Extract MFCC features
-        mfccs = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=N_MFCC, 
-                                   n_fft=N_FFT, hop_length=HOP_LENGTH)
-        
-        # Transpose to get (time_steps, n_mfcc) format
-        mfccs = mfccs.T
-        
-        # Pad or truncate to fixed length (130 time steps)
-        target_length = 130
-        if mfccs.shape[0] > target_length:
-            # Truncate if too long
-            mfccs = mfccs[:target_length]
-        elif mfccs.shape[0] < target_length:
+        # Ensure audio is long enough
+        min_length = SAMPLES_PER_TRACK
+        if len(signal) < min_length:
             # Pad with zeros if too short
-            pad_width = target_length - mfccs.shape[0]
-            mfccs = np.pad(mfccs, ((0, pad_width), (0, 0)), mode='constant')
+            signal = np.pad(signal, (0, min_length - len(signal)), mode='constant')
+        elif len(signal) > min_length:
+            # Truncate if too long
+            signal = signal[:min_length]
         
-        return mfccs
+        samples_per_segment = int(SAMPLES_PER_TRACK / num_segments)
+        expected_vects_per_segment = int(samples_per_segment / HOP_LENGTH) + 1
+        
+        features = []
+        
+        # Extract features from each segment
+        for i in range(num_segments):
+            start_sample = samples_per_segment * i
+            finish_sample = start_sample + samples_per_segment
+            
+            # Extract MFCC features
+            mfcc = librosa.feature.mfcc(
+                y=signal[start_sample:finish_sample],
+                sr=sr,
+                n_fft=N_FFT,
+                n_mfcc=N_MFCC,
+                hop_length=HOP_LENGTH
+            )
+            
+            mfcc = mfcc.T  # Transpose to get time x features
+            
+            # Pad or truncate to expected length
+            if len(mfcc) > expected_vects_per_segment:
+                mfcc = mfcc[:expected_vects_per_segment]
+            elif len(mfcc) < expected_vects_per_segment:
+                pad_length = expected_vects_per_segment - len(mfcc)
+                mfcc = np.pad(mfcc, ((0, pad_length), (0, 0)), mode='constant')
+            
+            features.append(mfcc)
+        
+        return np.array(features)
         
     except Exception as e:
         raise Exception(f"Error extracting features: {str(e)}")
@@ -135,7 +171,7 @@ class MusicGenrePredictor:
     def __init__(self):
         self.model = None
         self.model_name = None
-        self.genre_labels = GENRE_LABELS
+        self.genre_mapping = GENRE_MAPPING
     
     def load_model(self, model_path):
         """Load a trained model"""
@@ -148,7 +184,7 @@ class MusicGenrePredictor:
             return False
     
     def predict_genre(self, audio_file):
-        """Predict genre from audio file"""
+        """Predict genre from audio file using the same logic as predict.py"""
         if self.model is None:
             raise ValueError("No model loaded")
         
@@ -158,26 +194,35 @@ class MusicGenrePredictor:
                 tmp_file.write(audio_file.read())
                 tmp_path = tmp_file.name
             
-            # Extract features
+            # Extract features (segments)
             features = extract_features(tmp_path)
             
-            # Prepare features for prediction - shape should be (1, 130, 13)
-            if len(features.shape) == 2:
-                features = features.reshape(1, features.shape[0], features.shape[1])
+            # Prepare input shape for model
+            if len(self.model.input_shape) == 4:  # CNN model expects (batch, height, width, channels)
+                features = features[..., np.newaxis]
             
-            # Verify shape
-            expected_shape = (1, 130, 13)
-            if features.shape != expected_shape:
-                raise ValueError(f"Feature shape mismatch. Expected {expected_shape}, got {features.shape}")
+            # Get predictions for all segments
+            segment_predictions = []
+            segment_probabilities = []
             
-            # Make prediction
-            predictions = self.model.predict(features, verbose=0)
-            predicted_probabilities = predictions[0]
+            for segment in features:
+                # Add batch dimension
+                segment_input = np.expand_dims(segment, axis=0)
+                
+                # Predict
+                pred_proba = self.model.predict(segment_input, verbose=0)[0]
+                pred_class = np.argmax(pred_proba)
+                
+                segment_predictions.append(pred_class)
+                segment_probabilities.append(pred_proba)
             
-            # Get top prediction
-            predicted_class = np.argmax(predicted_probabilities)
-            confidence = predicted_probabilities[predicted_class]
-            predicted_genre = self.genre_labels[predicted_class]
+            # Average predictions across segments
+            avg_probabilities = np.mean(segment_probabilities, axis=0)
+            final_prediction = np.argmax(avg_probabilities)
+            confidence = np.max(avg_probabilities)
+            
+            # Get genre name using correct mapping
+            predicted_genre = self.genre_mapping[final_prediction]
             
             # Clean up temporary file
             os.unlink(tmp_path)
@@ -186,9 +231,11 @@ class MusicGenrePredictor:
                 'genre': predicted_genre,
                 'confidence': float(confidence),
                 'probabilities': {
-                    self.genre_labels[i]: float(prob) 
-                    for i, prob in enumerate(predicted_probabilities)
-                }
+                    self.genre_mapping[i]: float(prob) 
+                    for i, prob in enumerate(avg_probabilities)
+                },
+                'segment_predictions': [int(p) for p in segment_predictions],
+                'segment_agreement': float(np.mean(np.array(segment_predictions) == final_prediction))
             }
             
         except Exception as e:
@@ -473,6 +520,9 @@ def prediction_interface():
                             <div class="confidence-score">{result['confidence']:.1%} Confidence</div>
                         </div>
                         """, unsafe_allow_html=True)
+                        
+                        # Show segment information
+                        st.info(f"**Segment Agreement:** {result['segment_agreement']:.1%} ({len([p for p in result['segment_predictions'] if p == np.argmax([result['probabilities'][GENRE_MAPPING[i]] for i in range(len(GENRE_MAPPING))])])}/{len(result['segment_predictions'])} segments agreed)")
                         
                         # Show detailed probabilities
                         st.subheader("📊 Detailed Confidence Scores")
